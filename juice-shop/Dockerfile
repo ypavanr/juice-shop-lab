@@ -7,20 +7,18 @@ RUN npm install --omit=dev --no-audit --no-fund
 # Stage 2: Final image — Juice Shop + logging proxy
 FROM bkimminich/juice-shop:latest
 
-USER root
+# We cannot use apk or supervisor because the latest Juice Shop image is distroless.
+# We will use logging-proxy.js to natively spawn Juice Shop.
 
-# Install supervisord to run both processes
-RUN apk add --no-cache supervisor
+# Setup proxy directory and copy files with the default distroless user (10001 or 1001)
+# The default user for bkimminich/juice-shop distroless is 65532 (nonroot)
+COPY --chown=65532:65532 --from=proxy-builder /logging-proxy/node_modules /juice-shop/proxy/node_modules
+COPY --chown=65532:65532 logging-proxy.js /juice-shop/proxy/logging-proxy.js
 
-# Install logging proxy
-COPY --from=proxy-builder /logging-proxy/node_modules /logging-proxy/node_modules
-COPY logging-proxy.js /logging-proxy/logging-proxy.js
-COPY package.json /logging-proxy/package.json
-
-# Supervisord config
-COPY supervisord.conf /etc/supervisord.conf
-
+# We don't need package.json anymore since node_modules are built.
 # Public-facing port (proxy). Juice Shop stays on internal :3000
 EXPOSE 8080
 
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisord.conf"]
+USER 65532
+
+CMD ["node", "/juice-shop/proxy/logging-proxy.js"]

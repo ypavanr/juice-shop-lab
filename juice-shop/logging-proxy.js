@@ -123,3 +123,22 @@ process.on('SIGTERM', async () => {
   await flushBuffer();
   process.exit(0);
 });
+
+// ── Start Native Juice Shop Process ─────────────────────────────────────────
+const { spawn } = require('child_process');
+
+console.log('[proxy] Spawning backend Juice Shop process...');
+const juiceShop = spawn('node', ['build/app'], { 
+  cwd: '/juice-shop', 
+  stdio: 'inherit' 
+});
+
+juiceShop.on('error', (err) => {
+  console.error('[proxy] Failed to start Juice Shop:', err);
+});
+
+juiceShop.on('exit', (code) => {
+  console.log(`[proxy] Juice Shop exited with code ${code}`);
+  process.exit(code);
+});
+
