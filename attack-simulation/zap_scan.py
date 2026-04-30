@@ -97,7 +97,7 @@ def run_ajax_spider(zap: ZAPv2, timeout_secs: int = 180) -> None:
     zap.ajaxSpider.scan(TARGET_URL, contextname=CONTEXT_NAME, apikey=ZAP_API_KEY)
     deadline = time.time() + timeout_secs
     while time.time() < deadline:
-        status = zap.ajaxSpider.status()
+        status = zap.ajaxSpider.status
         log.info("AJAX spider status: %s", status)
         if status == "stopped":
             break
@@ -178,7 +178,7 @@ def main() -> None:
     log.info("Context '%s' (id=%s) scoped to %s.*", CONTEXT_NAME, ctx_id, TARGET_URL)
 
     run_spider(zap)
-    run_ajax_spider(zap)
+    # run_ajax_spider(zap)
     run_active_scan(zap)
     save_results(zap)
 

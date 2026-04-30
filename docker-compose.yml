@@ -36,9 +36,9 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"   # Linux compatibility
     ports:
-      - "5001:5001"
+      - "5005:5001"
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:5001/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -56,12 +56,12 @@ services:
       MAX_QUEUE_SIZE:        "10000"
       DRAIN_INTERVAL_SECS:   "5"
     ports:
-      - "5000:5000"
+      - "5006:5000"
     depends_on:
       log-ingestion:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:5000/health"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -109,6 +109,10 @@ services:
     volumes:
       - zap_data:/zap/wrk
       - ./attack-simulation/scan-results:/zap/reports
+    deploy:
+      resources:
+        limits:
+          memory: 1G
     restart: unless-stopped
 
 volumes:
