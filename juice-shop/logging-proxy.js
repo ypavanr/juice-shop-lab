@@ -128,7 +128,7 @@ process.on('SIGTERM', async () => {
 const { spawn } = require('child_process');
 
 console.log('[proxy] Spawning backend Juice Shop process...');
-const juiceShop = spawn('node', ['build/app'], { 
+const juiceShop = spawn('/nodejs/bin/node', ['build/app'], { 
   cwd: '/juice-shop', 
   stdio: 'inherit' 
 });
