@@ -1,0 +1,63 @@
+# Filebeat configuration
+# Collects /var/log/auth.log and /var/log/syslog from the backend VM
+# and ships them to Logstash for processing.
+#
+# Run as: sudo filebeat -e -c /path/to/filebeat.yml
+
+filebeat.inputs:
+  - type: log
+    id: auth-log
+    enabled: true
+    paths:
+      - /var/log/auth.log
+      - /var/log/secure         # RedHat/CentOS equivalent
+    fields:
+      log_type: auth
+      source_type: system
+    fields_under_root: true
+    # Multiline: merge continuation lines (e.g. PAM stack entries)
+    multiline.type: pattern
+    multiline.pattern: '^[A-Z][a-z]{2}\s+\d'
+    multiline.negate: true
+    multiline.match: after
+    encoding: utf-8
+    ignore_older: 24h
+
+  - type: log
+    id: syslog
+    enabled: true
+    paths:
+      - /var/log/syslog
+      - /var/log/messages        # RedHat/CentOS equivalent
+    fields:
+      log_type: syslog
+      source_type: system
+    fields_under_root: true
+    multiline.type: pattern
+    multiline.pattern: '^[A-Z][a-z]{2}\s+\d'
+    multiline.negate: true
+    multiline.match: after
+    encoding: utf-8
+    ignore_older: 24h
+
+# Ship to Logstash
+output.logstash:
+  hosts: ["${LOGSTASH_HOST:logstash}:5044"]
+  timeout: 15
+  bulk_max_size: 512
+  # TLS (enable in production)
+  # ssl.enabled: true
+  # ssl.certificate_authorities: ["/etc/ssl/certs/logstash-ca.crt"]
+
+# Pre-processing on the agent side
+processors:
+  - add_host_metadata:
+      when.not.contains.tags: forwarded
+  - add_cloud_metadata: ~
+  - drop_fields:
+      fields: ["agent.ephemeral_id", "agent.id", "log.offset"]
+      ignore_missing: true
+
+logging.level: info
+logging.to_files: false
+logging.metrics.enabled: false

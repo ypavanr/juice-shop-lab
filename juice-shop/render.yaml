@@ -1,0 +1,44 @@
+# Render deployment configuration for OWASP Juice Shop with logging middleware
+#
+# SETUP STEPS:
+#   1. Fork this repo (or push to a new GitHub repo containing juice-shop-lab/)
+#   2. In Render dashboard → New → Web Service → Connect your repo
+#   3. Set Root Directory: juice-shop-lab/juice-shop
+#   4. Render will auto-detect this render.yaml
+#   5. Set the LOG_RECEIVER_URL env var to your backend VM's public IP:
+#      http://<BACKEND_VM_PUBLIC_IP>:5000/log
+#
+# NOTE: The free tier sleeps after 15 min of inactivity.
+# Use the "starter" plan for always-on behaviour during testing.
+
+services:
+  - type: web
+    name: juice-shop-monitored
+    env: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter          # Change to "free" if cost is a concern
+    healthCheckPath: /     # Juice Shop serves / on port 8080 via proxy
+    numInstances: 1
+
+    envVars:
+      # ──────────────────────────────────────────────────────────
+      # REQUIRED: replace with your backend VM's public IP/domain
+      # ──────────────────────────────────────────────────────────
+      - key: LOG_RECEIVER_URL
+        value: http://REPLACE_WITH_YOUR_BACKEND_IP:5000/log
+
+      - key: JUICE_SHOP_INTERNAL
+        value: http://localhost:3000
+
+      - key: PROXY_PORT
+        value: "8080"
+
+      - key: NODE_ENV
+        value: production
+
+      # Batch 20 log entries before flushing (reduces HTTP round-trips)
+      - key: LOG_BATCH_SIZE
+        value: "20"
+
+      - key: LOG_BATCH_INTERVAL_MS
+        value: "2000"

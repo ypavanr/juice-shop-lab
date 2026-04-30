@@ -1,0 +1,119 @@
+version: "3.9"
+
+# ============================================================
+# Cybersecurity Lab — Backend Stack
+#
+# Neo4j runs separately as container 'neo4j-juicelab' on the host
+# (started by run.sh / started manually).  The services here
+# connect to it via host.docker.internal:7687 so the compose
+# stack does NOT manage Neo4j itself.
+#
+# Services:
+#   log-ingestion — normaliser + Neo4j graph writer (port 5001)
+#   log-receiver  — accepts logs from cloud Juice Shop (port 5000)
+#   logstash      — processes Filebeat system logs (port 5044)
+#   zap           — OWASP ZAP scanner (port 8090)
+#
+# Usage:
+#   cp .env.example .env && fill in values
+#   docker compose up -d
+# ============================================================
+
+services:
+
+  # ── Log Ingestion Service (normalises logs → Neo4j) ───────────────────────
+  log-ingestion:
+    build:
+      context: ./backend/log-ingestion
+      dockerfile: Dockerfile
+    container_name: log-ingestion
+    environment:
+      # host.docker.internal resolves to the Docker host on Mac/Win;
+      # on Linux add --add-host=host.docker.internal:host-gateway
+      NEO4J_URI:      "neo4j://host.docker.internal:7687"
+      NEO4J_USER:     "${NEO4J_USER:-neo4j}"
+      NEO4J_PASSWORD: "${NEO4J_PASSWORD:-rendertest}"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # Linux compatibility
+    ports:
+      - "5001:5001"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    restart: unless-stopped
+
+  # ── Log Receiver (accepts HTTP logs from cloud Juice Shop) ────────────────
+  log-receiver:
+    build:
+      context: ./backend/log-receiver
+      dockerfile: Dockerfile
+    container_name: log-receiver
+    environment:
+      INGESTION_SERVICE_URL: "http://log-ingestion:5001/ingest"
+      MAX_QUEUE_SIZE:        "10000"
+      DRAIN_INTERVAL_SECS:   "5"
+    ports:
+      - "5000:5000"
+    depends_on:
+      log-ingestion:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+
+  # ── Logstash (processes Filebeat system logs) ─────────────────────────────
+  logstash:
+    build:
+      context: ./backend/logstash
+      dockerfile: Dockerfile
+    container_name: logstash
+    environment:
+      LS_JAVA_OPTS:      "-Xmx512m -Xms256m"
+      LOG_INGESTION_URL: "http://log-ingestion:5001/ingest"
+    ports:
+      - "5044:5044"   # Beats input
+      - "9600:9600"   # Monitoring API
+    volumes:
+      - ./backend/logstash/pipeline:/usr/share/logstash/pipeline:ro
+    depends_on:
+      log-ingestion:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:9600/_node/stats"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+    restart: unless-stopped
+
+  # ── OWASP ZAP (attack scanner, run on demand) ─────────────────────────────
+  zap:
+    image: ghcr.io/zaproxy/zaproxy:stable
+    container_name: zap
+    command: >
+      zap.sh -daemon
+      -port 8090
+      -host 0.0.0.0
+      -config api.key=${ZAP_API_KEY:-zapapikey}
+      -config api.addrs.addr.name=.*
+      -config api.addrs.addr.regex=true
+    ports:
+      - "8090:8090"
+    volumes:
+      - zap_data:/zap/wrk
+      - ./attack-simulation/scan-results:/zap/reports
+    restart: unless-stopped
+
+volumes:
+  zap_data:
+
+networks:
+  default:
+    name: cyberlab
