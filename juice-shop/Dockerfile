@@ -2,7 +2,7 @@
 FROM node:18-alpine AS proxy-builder
 WORKDIR /logging-proxy
 COPY package.json ./
-RUN npm ci --omit=dev
+RUN npm install --omit=dev --no-audit --no-fund
 
 # Stage 2: Final image — Juice Shop + logging proxy
 FROM bkimminich/juice-shop:latest
