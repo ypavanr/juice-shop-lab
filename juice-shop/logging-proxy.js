@@ -130,7 +130,8 @@ const { spawn } = require('child_process');
 console.log('[proxy] Spawning backend Juice Shop process...');
 const juiceShop = spawn('/nodejs/bin/node', ['build/app'], { 
   cwd: '/juice-shop', 
-  stdio: 'inherit' 
+  stdio: 'inherit',
+  env: Object.assign({}, process.env, { PORT: '3000' })
 });
 
 juiceShop.on('error', (err) => {
