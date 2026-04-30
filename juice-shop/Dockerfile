@@ -21,4 +21,4 @@ EXPOSE 8080
 
 USER 65532
 
-CMD ["node", "/juice-shop/proxy/logging-proxy.js"]
+CMD ["/juice-shop/proxy/logging-proxy.js"]
